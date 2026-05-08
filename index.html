@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NETWATCH PRO | Final v1.0</title>
+    <title>NETWATCH PRO | v1.1</title>
     <style>
         :root { --neon: #00ffcc; --bg: #0a0e14; --card: #141b24; --dim: #66788f; --danger: #ff4444; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -31,9 +31,18 @@
 
         h2 { text-align: center; letter-spacing: 4px; font-size: 1.2rem; margin: 0 0 20px 0; border-bottom: 1px solid #1a232e; padding-bottom: 15px; }
         
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        /* Oppdatert Info Grid med 3 felt */
+        .info-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 10px; 
+            margin-bottom: 20px; 
+        }
+        .info-item.wide { grid-column: span 2; }
+
         .info-item { background: rgba(0, 255, 204, 0.02); padding: 12px; border-radius: 8px; border: 1px solid #2a3544; }
         .label { display: block; font-size: 0.6rem; color: var(--dim); text-transform: uppercase; margin-bottom: 2px; }
+        .val { font-size: 0.85rem; color: #e0e6ed; }
 
         .results-area { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 25px 0; }
         @media (max-width: 480px) { .results-area { grid-template-columns: 1fr; } }
@@ -53,7 +62,6 @@
         .progress-container { height: 4px; background: #1a232e; margin: 20px 0; border-radius: 2px; overflow: hidden; }
         .progress-fill { height: 100%; background: var(--neon); width: 0%; transition: width 0.1s; }
 
-        /* Historikk med full dato/tid */
         .history-container { margin-top: 30px; border-top: 1px solid #2a3544; padding-top: 20px; }
         .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .history-header span { font-size: 0.7rem; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; }
@@ -74,8 +82,9 @@
     <h2>NETWATCH PRO</h2>
     
     <div class="info-grid">
-        <div class="info-item"><span class="label">ISP</span><span id="isp">Scanning...</span></div>
-        <div class="info-item"><span class="label">Location</span><span id="loc">Locating...</span></div>
+        <div class="info-item wide"><span class="label">Public IP Address</span><span id="ip" class="val">Scanning...</span></div>
+        <div class="info-item"><span class="label">Provider</span><span id="isp" class="val">---</span></div>
+        <div class="info-item"><span class="label">Location</span><span id="loc" class="val">---</span></div>
     </div>
 
     <div class="results-area">
@@ -111,9 +120,10 @@
         try {
             const res = await fetch('https://ipapi.co/json/');
             const data = await res.json();
+            document.getElementById('ip').innerText = data.ip;
             document.getElementById('isp').innerText = data.org.split(' ')[0];
             document.getElementById('loc').innerText = data.city + ", " + data.country_code;
-        } catch(e) { document.getElementById('isp').innerText = "Unknown"; }
+        } catch(e) { document.getElementById('ip').innerText = "Network Masked"; }
     }
 
     async function runDiagnostic() {
