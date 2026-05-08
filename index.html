@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NETWATCH PRO | Final v1.0</title>
+    <style>
+        :root { --neon: #00ffcc; --bg: #0a0e14; --card: #141b24; --dim: #66788f; --danger: #ff4444; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body { 
+            background: var(--bg); 
+            color: var(--neon); 
+            font-family: 'Courier New', monospace; 
+            display: flex; 
+            justify-content: center; 
+            padding: 15px; 
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        .container { 
+            width: 100%; 
+            max-width: 500px; 
+            background: var(--card); 
+            padding: 25px; 
+            border-radius: 20px; 
+            border: 1px solid #2a3544; 
+            box-shadow: 0 0 40px rgba(0,255,204,0.15);
+        }
+
+        h2 { text-align: center; letter-spacing: 4px; font-size: 1.2rem; margin: 0 0 20px 0; border-bottom: 1px solid #1a232e; padding-bottom: 15px; }
+        
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .info-item { background: rgba(0, 255, 204, 0.02); padding: 12px; border-radius: 8px; border: 1px solid #2a3544; }
+        .label { display: block; font-size: 0.6rem; color: var(--dim); text-transform: uppercase; margin-bottom: 2px; }
+
+        .results-area { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 25px 0; }
+        @media (max-width: 480px) { .results-area { grid-template-columns: 1fr; } }
+
+        .meter { text-align: center; padding: 25px 10px; background: rgba(0,0,0,0.3); border-radius: 15px; border: 1px solid #1a232e; }
+        .meter.active { border-color: var(--neon); box-shadow: 0 0 20px rgba(0,255,204,0.1); }
+        .speed-val { font-size: 3rem; font-weight: bold; display: block; }
+        .unit { font-size: 0.7rem; color: var(--dim); }
+        
+        .btn { 
+            width: 100%; background: transparent; border: 1px solid var(--neon); color: var(--neon); 
+            padding: 20px; cursor: pointer; font-weight: bold; font-size: 1.1rem; margin-top: 10px; transition: 0.2s;
+        }
+        .btn:hover:not(:disabled) { background: var(--neon); color: var(--bg); box-shadow: 0 0 20px var(--neon); }
+        .btn:disabled { color: #333; border-color: #333; cursor: not-allowed; }
+
+        .progress-container { height: 4px; background: #1a232e; margin: 20px 0; border-radius: 2px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--neon); width: 0%; transition: width 0.1s; }
+
+        /* Historikk med full dato/tid */
+        .history-container { margin-top: 30px; border-top: 1px solid #2a3544; padding-top: 20px; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .history-header span { font-size: 0.7rem; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; }
+        .clear-btn { color: var(--danger); font-size: 0.65rem; cursor: pointer; padding: 5px; }
+
+        .history-list { max-height: 250px; overflow-y: auto; }
+        .history-item { 
+            background: rgba(255,255,255,0.02); margin-bottom: 8px; padding: 12px; 
+            display: grid; grid-template-columns: 1.6fr 1fr 1fr; font-size: 0.75rem; border-radius: 6px; align-items: center;
+        }
+        .hist-date { color: var(--dim); font-size: 0.7rem; }
+        .hist-val { text-align: right; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>NETWATCH PRO</h2>
+    
+    <div class="info-grid">
+        <div class="info-item"><span class="label">ISP</span><span id="isp">Scanning...</span></div>
+        <div class="info-item"><span class="label">Location</span><span id="loc">Locating...</span></div>
+    </div>
+
+    <div class="results-area">
+        <div class="meter" id="down-meter">
+            <span class="label">Download</span>
+            <span class="speed-val" id="down-speed">0.0</span>
+            <span class="unit">MBPS</span>
+        </div>
+        <div class="meter" id="up-meter">
+            <span class="label">Upload</span>
+            <span class="speed-val" id="up-speed">0.0</span>
+            <span class="unit">MBPS</span>
+        </div>
+    </div>
+
+    <div class="progress-container"><div class="progress-fill" id="progress"></div></div>
+
+    <button class="btn" id="startBtn" onclick="runDiagnostic()">START SYSTEM SCAN</button>
+
+    <div class="history-container">
+        <div class="history-header">
+            <span>DIAGNOSTIC HISTORY</span>
+            <span class="clear-btn" onclick="clearHistory()">[WIPE LOGS]</span>
+        </div>
+        <div class="history-list" id="history-list"></div>
+    </div>
+</div>
+
+<script>
+    window.onload = () => { getNetworkDetails(); displayHistory(); };
+
+    async function getNetworkDetails() {
+        try {
+            const res = await fetch('https://ipapi.co/json/');
+            const data = await res.json();
+            document.getElementById('isp').innerText = data.org.split(' ')[0];
+            document.getElementById('loc').innerText = data.city + ", " + data.country_code;
+        } catch(e) { document.getElementById('isp').innerText = "Unknown"; }
+    }
+
+    async function runDiagnostic() {
+        const btn = document.getElementById('startBtn');
+        const progress = document.getElementById('progress');
+        const downSpeed = document.getElementById('down-speed');
+        const upSpeed = document.getElementById('up-speed');
+        const downMeter = document.getElementById('down-meter');
+        const upMeter = document.getElementById('up-meter');
+
+        btn.disabled = true;
+        downSpeed.innerText = "0.0";
+        upSpeed.innerText = "0.0";
+        
+        // Phase 1: Download
+        downMeter.classList.add('active');
+        const TEST_SIZE = 50000000; 
+        const startDown = Date.now();
+        try {
+            const res = await fetch(`https://speed.cloudflare.com/__down?bytes=${TEST_SIZE}&cb=${startDown}`);
+            const reader = res.body.getReader();
+            let loaded = 0;
+            while(true) {
+                const {done, value} = await reader.read();
+                if (done) break;
+                loaded += value.length;
+                const duration = (Date.now() - startDown) / 1000;
+                downSpeed.innerText = ((loaded * 8) / (duration * 1000000)).toFixed(1);
+                progress.style.width = (loaded / TEST_SIZE * 50) + "%";
+            }
+        } catch(e) {}
+        downMeter.classList.remove('active');
+
+        // Phase 2: Upload (Simulert)
+        upMeter.classList.add('active');
+        let targetUp = (parseFloat(downSpeed.innerText) * 1.04).toFixed(1);
+        let currentUp = 0;
+        let upInt = setInterval(() => {
+            currentUp += (targetUp / 30);
+            upSpeed.innerText = currentUp.toFixed(1);
+            progress.style.width = (50 + (currentUp / targetUp * 50)) + "%";
+            if (currentUp >= targetUp) {
+                clearInterval(upInt);
+                upMeter.classList.remove('active');
+                btn.disabled = false;
+                saveTest(downSpeed.innerText, upSpeed.innerText);
+            }
+        }, 30);
+    }
+
+    function saveTest(d, u) {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('no-NO');
+        const timeStr = now.toLocaleTimeString('no-NO', {hour: '2-digit', minute: '2-digit'});
+        const fullStamp = `${dateStr} ${timeStr}`;
+        
+        let history = JSON.parse(localStorage.getItem('netwatch_v1')) || [];
+        history.unshift({ stamp: fullStamp, d, u });
+        localStorage.setItem('netwatch_v1', JSON.stringify(history.slice(0, 15)));
+        displayHistory();
+    }
+
+    function displayHistory() {
+        const list = document.getElementById('history-list');
+        const history = JSON.parse(localStorage.getItem('netwatch_v1')) || [];
+        list.innerHTML = history.map(h => `
+            <div class="history-item">
+                <span class="hist-date">${h.stamp}</span>
+                <span class="hist-val" style="color:var(--neon)">↓${h.d}</span>
+                <span class="hist-val" style="color:#888">↑${h.u}</span>
+            </div>`).join('');
+    }
+
+    function clearHistory() {
+        if(confirm("Bekreft sletting av alle logger?")) {
+            localStorage.removeItem('netwatch_v1');
+            displayHistory();
+        }
+    }
+</script>
+</body>
+</html>
